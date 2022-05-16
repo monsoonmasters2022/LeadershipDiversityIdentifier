@@ -1,0 +1,124 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "workflows_updateLabelDBToExcel_name": {
+            "defaultValue": "updateLabelDBToExcel",
+            "type": "String"
+        },
+        "connections_documentdb_externalid": {
+            "defaultValue": "/subscriptions/d8d3f55a-8679-4dad-bbe3-3b851100c78e/resourceGroups/rg-MonsoonMasters/providers/Microsoft.Web/connections/documentdb",
+            "type": "String"
+        },
+        "connections_excelonline_externalid": {
+            "defaultValue": "/subscriptions/d8d3f55a-8679-4dad-bbe3-3b851100c78e/resourceGroups/rg-MonsoonMasters/providers/Microsoft.Web/connections/excelonline",
+            "type": "String"
+        }
+    },
+    "variables": {},
+    "resources": [
+        {
+            "type": "Microsoft.Logic/workflows",
+            "apiVersion": "2017-07-01",
+            "name": "[parameters('workflows_updateLabelDBToExcel_name')]",
+            "location": "eastus",
+            "tags": {
+                "logic-app-update": "monsoonmasters"
+            },
+            "properties": {
+                "state": "Enabled",
+                "definition": {
+                    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "$connections": {
+                            "defaultValue": {},
+                            "type": "Object"
+                        }
+                    },
+                    "triggers": {
+                        "manual": {
+                            "type": "Request",
+                            "kind": "EventGrid",
+                            "inputs": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {}
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "actions": {
+                        "For_each": {
+                            "foreach": "@body('Get_all_documents_(V3)')?['Documents']",
+                            "actions": {
+                                "Update_a_row": {
+                                    "runAfter": {},
+                                    "metadata": {
+                                        "FB05F964E36FD558!133": "/Hackathon_Data_MinorityWomenOwned_2022 v1_Subset_Result.xlsx"
+                                    },
+                                    "type": "ApiConnection",
+                                    "inputs": {
+                                        "body": {
+                                            "MinorityOwnedDesc": "@{trim(items('For_each')['minorowneddesc'])}",
+                                            "isWomanOwned": "@{trim(items('For_each')['isWomanOwned'])}"
+                                        },
+                                        "host": {
+                                            "connection": {
+                                                "name": "@parameters('$connections')['excelonline']['connectionId']"
+                                            }
+                                        },
+                                        "method": "patch",
+                                        "path": "/drives/me/files/@{encodeURIComponent('FB05F964E36FD558!133')}/tables/@{encodeURIComponent('{ECB8B04E-57F6-422F-8F34-C057CAE0C763}')}/items/@{encodeURIComponent(encodeURIComponent(trim(items('For_each')['dunsNum'])))}",
+                                        "queries": {
+                                            "idColumn": "dunsNum",
+                                            "source": "me"
+                                        }
+                                    }
+                                }
+                            },
+                            "runAfter": {
+                                "Get_all_documents_(V3)": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Foreach"
+                        },
+                        "Get_all_documents_(V3)": {
+                            "runAfter": {},
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['documentdb']['connectionId']"
+                                    }
+                                },
+                                "method": "get",
+                                "path": "/v2/cosmosdb/@{encodeURIComponent('AccountNameFromSettings')}/dbs/@{encodeURIComponent('diverseownedresult')}/colls/@{encodeURIComponent('diverseownedresult')}/docs"
+                            }
+                        }
+                    },
+                    "outputs": {}
+                },
+                "parameters": {
+                    "$connections": {
+                        "value": {
+                            "documentdb": {
+                                "connectionId": "[parameters('connections_documentdb_externalid')]",
+                                "connectionName": "documentdb",
+                                "id": "/subscriptions/d8d3f55a-8679-4dad-bbe3-3b851100c78e/providers/Microsoft.Web/locations/eastus/managedApis/documentdb"
+                            },
+                            "excelonline": {
+                                "connectionId": "[parameters('connections_excelonline_externalid')]",
+                                "connectionName": "excelonline",
+                                "id": "/subscriptions/d8d3f55a-8679-4dad-bbe3-3b851100c78e/providers/Microsoft.Web/locations/eastus/managedApis/excelonline"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    ]
+}
