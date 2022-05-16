@@ -34,7 +34,6 @@
 * Usage of Public APIs/Data
 * ML Model for diversity determination
 * Build for Azure
-    - Windows, macOS and Linux ready.
     
 ## Emailware
 
@@ -44,7 +43,7 @@ DiversityLeadershipIdentifier is an [emailware](https://en.wiktionary.org/wiki/e
 
 This software uses the following open source packages:
 
-- [Azure](http://electron.atom.io/)
+- [Python](https://www.python.org)
 
 
 ## Related
