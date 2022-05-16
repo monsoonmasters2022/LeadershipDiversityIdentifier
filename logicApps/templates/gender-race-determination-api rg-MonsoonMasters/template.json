@@ -1,0 +1,99 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "workflows_gender_race_determination_api_name": {
+            "defaultValue": "gender-race-determination-api",
+            "type": "String"
+        },
+        "connections_documentdb_externalid": {
+            "defaultValue": "/subscriptions/d8d3f55a-8679-4dad-bbe3-3b851100c78e/resourceGroups/rg-MonsoonMasters/providers/Microsoft.Web/connections/documentdb",
+            "type": "String"
+        }
+    },
+    "variables": {},
+    "resources": [
+        {
+            "type": "Microsoft.Logic/workflows",
+            "apiVersion": "2017-07-01",
+            "name": "[parameters('workflows_gender_race_determination_api_name')]",
+            "location": "eastus",
+            "tags": {
+                "TeamName": "MonsoonMasters"
+            },
+            "properties": {
+                "state": "Enabled",
+                "definition": {
+                    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "$connections": {
+                            "defaultValue": {},
+                            "type": "Object"
+                        }
+                    },
+                    "triggers": {
+                        "manual": {
+                            "type": "Request",
+                            "kind": "Http",
+                            "inputs": {
+                                "schema": {
+                                    "properties": {
+                                        "individualName": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "actions": {
+                        "Query_documents_V5": {
+                            "runAfter": {},
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['documentdb']['connectionId']"
+                                    }
+                                },
+                                "method": "get",
+                                "path": "/v5/cosmosdb/@{encodeURIComponent('AccountNameFromSettings')}/dbs/@{encodeURIComponent('raceGenderProcessedData')}/colls/@{encodeURIComponent('raceGenderProcessedData')}/query",
+                                "queries": {
+                                    "maxItemCount": 1,
+                                    "queryText": "SELECT * FROM c\nWHERE c.full_name = \"@{triggerBody()?['individualName']}\""
+                                }
+                            }
+                        },
+                        "Response": {
+                            "runAfter": {
+                                "Query_documents_V5": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Response",
+                            "kind": "Http",
+                            "inputs": {
+                                "body": "@body('Query_documents_V5')?['value']",
+                                "statusCode": 200
+                            }
+                        }
+                    },
+                    "outputs": {}
+                },
+                "parameters": {
+                    "$connections": {
+                        "value": {
+                            "documentdb": {
+                                "connectionId": "[parameters('connections_documentdb_externalid')]",
+                                "connectionName": "documentdb",
+                                "id": "/subscriptions/d8d3f55a-8679-4dad-bbe3-3b851100c78e/providers/Microsoft.Web/locations/eastus/managedApis/documentdb"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    ]
+}
