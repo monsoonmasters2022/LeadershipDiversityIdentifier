@@ -1,0 +1,489 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "workflows_CompanyDataLoaderEnricherJSON_name": {
+            "defaultValue": "CompanyDataLoaderEnricherJSON",
+            "type": "String"
+        },
+        "workflows_gender_race_determination_api_externalid": {
+            "defaultValue": "/subscriptions/d8d3f55a-8679-4dad-bbe3-3b851100c78e/resourceGroups/rg-MonsoonMasters/providers/Microsoft.Logic/workflows/gender-race-determination-api",
+            "type": "String"
+        },
+        "workflows_social_media_aggregator_api_externalid": {
+            "defaultValue": "/subscriptions/d8d3f55a-8679-4dad-bbe3-3b851100c78e/resourceGroups/rg-MonsoonMasters/providers/Microsoft.Logic/workflows/social-media-aggregator-api",
+            "type": "String"
+        },
+        "connections_azureblob_externalid": {
+            "defaultValue": "/subscriptions/d8d3f55a-8679-4dad-bbe3-3b851100c78e/resourceGroups/rg-MonsoonMasters/providers/Microsoft.Web/connections/azureblob",
+            "type": "String"
+        },
+        "connections_documentdb_externalid": {
+            "defaultValue": "/subscriptions/d8d3f55a-8679-4dad-bbe3-3b851100c78e/resourceGroups/rg-MonsoonMasters/providers/Microsoft.Web/connections/documentdb",
+            "type": "String"
+        },
+        "connections_excelonline_externalid": {
+            "defaultValue": "/subscriptions/d8d3f55a-8679-4dad-bbe3-3b851100c78e/resourceGroups/rg-MonsoonMasters/providers/Microsoft.Web/connections/excelonline",
+            "type": "String"
+        }
+    },
+    "variables": {},
+    "resources": [
+        {
+            "type": "Microsoft.Logic/workflows",
+            "apiVersion": "2017-07-01",
+            "name": "[parameters('workflows_CompanyDataLoaderEnricherJSON_name')]",
+            "location": "eastus",
+            "tags": {
+                "TeamName": "MonsoonMasters"
+            },
+            "properties": {
+                "state": "Enabled",
+                "definition": {
+                    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "$connections": {
+                            "defaultValue": {},
+                            "type": "Object"
+                        }
+                    },
+                    "triggers": {
+                        "When_a_blob_input_file_is_added_or_modified": {
+                            "recurrence": {
+                                "frequency": "Minute",
+                                "interval": 3
+                            },
+                            "evaluatedRecurrence": {
+                                "frequency": "Minute",
+                                "interval": 3
+                            },
+                            "splitOn": "@triggerBody()",
+                            "metadata": {
+                                "JTJmc3RhdGljLWlucHV0LWRhdGE=": "/static-input-data"
+                            },
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['azureblob']['connectionId']"
+                                    }
+                                },
+                                "method": "get",
+                                "path": "/v2/datasets/@{encodeURIComponent(encodeURIComponent('AccountNameFromSettings'))}/triggers/batch/onupdatedfile",
+                                "queries": {
+                                    "checkBothCreatedAndModifiedDateTime": false,
+                                    "folderId": "JTJmc3RhdGljLWlucHV0LWRhdGE=",
+                                    "maxFileCount": 1
+                                }
+                            }
+                        }
+                    },
+                    "actions": {
+                        "For_each": {
+                            "foreach": "@body('List_rows_present_in_input_excel')?['value']",
+                            "actions": {
+                                "Call_Google_Knowledge_Search_Graph_API": {
+                                    "runAfter": {
+                                        "Set_socialMediaResponse_variable": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "Http",
+                                    "inputs": {
+                                        "method": "GET",
+                                        "queries": {
+                                            "key": "AIzaSyA1YwSyxjRRyfgBYncC-SVdLsQTSASDOcw",
+                                            "languages": "en",
+                                            "query": "@items('For_each')?['dunsName']"
+                                        },
+                                        "uri": "https://kgsearch.googleapis.com/v1/entities:search"
+                                    }
+                                },
+                                "Call_gender-race-determination-api": {
+                                    "runAfter": {
+                                        "Set_KnowledgeAPIResult_variable": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "Workflow",
+                                    "inputs": {
+                                        "body": {
+                                            "individualName": "@{trim(split(if(less(length(items('For_each')['executiveContact1']),1),items('For_each')['executiveContact2'],items('For_each')['executiveContact1']),'-')[0])}"
+                                        },
+                                        "host": {
+                                            "triggerName": "manual",
+                                            "workflow": {
+                                                "id": "[parameters('workflows_gender_race_determination_api_externalid')]"
+                                            }
+                                        }
+                                    }
+                                },
+                                "Call_social-media-aggregator-api": {
+                                    "runAfter": {},
+                                    "type": "Workflow",
+                                    "inputs": {
+                                        "body": {
+                                            "individualName": "@{trim(split(if(less(length(items('For_each')['executiveContact1']),1),items('For_each')['executiveContact2'],items('For_each')['executiveContact1']),'-')[0])}"
+                                        },
+                                        "host": {
+                                            "triggerName": "manual",
+                                            "workflow": {
+                                                "id": "[parameters('workflows_social_media_aggregator_api_externalid')]"
+                                            }
+                                        }
+                                    }
+                                },
+                                "Create_or_update_enrichedDataItem": {
+                                    "runAfter": {
+                                        "For_each_2": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "ApiConnection",
+                                    "inputs": {
+                                        "body": "@variables('enrichedDataItem')",
+                                        "headers": {
+                                            "x-ms-documentdb-is-upsert": true
+                                        },
+                                        "host": {
+                                            "connection": {
+                                                "name": "@parameters('$connections')['documentdb']['connectionId']"
+                                            }
+                                        },
+                                        "method": "post",
+                                        "path": "/v2/cosmosdb/@{encodeURIComponent('AccountNameFromSettings')}/dbs/@{encodeURIComponent('enrichedCompanyData')}/colls/@{encodeURIComponent('enrichedCompanyData')}/docs"
+                                    }
+                                },
+                                "For_each_2": {
+                                    "foreach": "@body('Parse_Gender_Race_determination_API_Response')",
+                                    "actions": {
+                                        "Compose_Enriched_Data_JSON": {
+                                            "runAfter": {},
+                                            "type": "Compose",
+                                            "inputs": {
+                                                "MinorityOwnedDesc": "",
+                                                "STATE": "@items('For_each')['STATE']",
+                                                "city": "@items('For_each')['city']",
+                                                "county": "@items('For_each')['county']",
+                                                "dunsName": "@items('For_each')['dunsName']",
+                                                "dunsNum": "@items('For_each')['dunsNum']",
+                                                "id": "@items('For_each')['dunsNum']",
+                                                "isWomanOwned": "",
+                                                "leadershipInfo": {
+                                                    "differentlyAbled": "",
+                                                    "full_name": "@trim(split(if(less(length(items('For_each')['executiveContact1']), 1), items('For_each')['executiveContact2'], items('For_each')['executiveContact1']), '-')[0])",
+                                                    "gender": "@items('For_each_2')['gender']",
+                                                    "lgbtq": "",
+                                                    "race": "@items('For_each_2')['raceEthnicity']",
+                                                    "role": "@trim(split(if(less(length(items('For_each')['executiveContact1']), 1), items('For_each')['executiveContact2'], items('For_each')['executiveContact1']), '-')[1])",
+                                                    "socialHashtags": "@variables('socialMediaResponse')[0]['hashTags']"
+                                                },
+                                                "phone": "@items('For_each')['phone']",
+                                                "streetAddress": "@items('For_each')['streetAddress']",
+                                                "zip": "@items('For_each')['zip']"
+                                            }
+                                        },
+                                        "Set_enrichedDataItem_variable": {
+                                            "runAfter": {
+                                                "Compose_Enriched_Data_JSON": [
+                                                    "Succeeded"
+                                                ]
+                                            },
+                                            "type": "SetVariable",
+                                            "inputs": {
+                                                "name": "enrichedDataItem",
+                                                "value": "@outputs('Compose_Enriched_Data_JSON')"
+                                            }
+                                        }
+                                    },
+                                    "runAfter": {
+                                        "Parse_Gender_Race_determination_API_Response": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "Foreach",
+                                    "runtimeConfiguration": {
+                                        "concurrency": {
+                                            "repetitions": 1
+                                        }
+                                    }
+                                },
+                                "Parse_Gender_Race_determination_API_Response": {
+                                    "runAfter": {
+                                        "Call_gender-race-determination-api": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "ParseJson",
+                                    "inputs": {
+                                        "content": "@body('Call_gender-race-determination-api')",
+                                        "schema": {
+                                            "items": {
+                                                "properties": {
+                                                    "_attachments": {
+                                                        "type": "string"
+                                                    },
+                                                    "_etag": {
+                                                        "type": "string"
+                                                    },
+                                                    "_rid": {
+                                                        "type": "string"
+                                                    },
+                                                    "_self": {
+                                                        "type": "string"
+                                                    },
+                                                    "_ts": {
+                                                        "type": "integer"
+                                                    },
+                                                    "first_name": {
+                                                        "type": "string"
+                                                    },
+                                                    "full_name": {
+                                                        "type": "string"
+                                                    },
+                                                    "gender": {
+                                                        "type": "string"
+                                                    },
+                                                    "id": {
+                                                        "type": "string"
+                                                    },
+                                                    "last_name": {
+                                                        "type": "string"
+                                                    },
+                                                    "probability": {
+                                                        "type": "number"
+                                                    },
+                                                    "raceEthnicity": {
+                                                        "type": "string"
+                                                    }
+                                                },
+                                                "required": [
+                                                    "full_name",
+                                                    "first_name",
+                                                    "last_name",
+                                                    "gender",
+                                                    "raceEthnicity",
+                                                    "probability",
+                                                    "id",
+                                                    "_rid",
+                                                    "_self",
+                                                    "_etag",
+                                                    "_attachments",
+                                                    "_ts"
+                                                ],
+                                                "type": "object"
+                                            },
+                                            "type": "array"
+                                        }
+                                    }
+                                },
+                                "Parse_Social_Media_Aggregator_API_Response": {
+                                    "runAfter": {
+                                        "Call_social-media-aggregator-api": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "ParseJson",
+                                    "inputs": {
+                                        "content": "@body('Call_social-media-aggregator-api')",
+                                        "schema": {
+                                            "items": {
+                                                "properties": {
+                                                    "_attachments": {
+                                                        "type": "string"
+                                                    },
+                                                    "_etag": {
+                                                        "type": "string"
+                                                    },
+                                                    "_rid": {
+                                                        "type": "string"
+                                                    },
+                                                    "_self": {
+                                                        "type": "string"
+                                                    },
+                                                    "_ts": {
+                                                        "type": "integer"
+                                                    },
+                                                    "hashTags": {
+                                                        "items": {
+                                                            "type": "string"
+                                                        },
+                                                        "type": "array"
+                                                    },
+                                                    "id": {
+                                                        "type": "string"
+                                                    }
+                                                },
+                                                "required": [
+                                                    "id",
+                                                    "hashTags",
+                                                    "_rid",
+                                                    "_self",
+                                                    "_etag",
+                                                    "_attachments",
+                                                    "_ts"
+                                                ],
+                                                "type": "object"
+                                            },
+                                            "type": "array"
+                                        }
+                                    }
+                                },
+                                "Set_KnowledgeAPIResult_variable": {
+                                    "runAfter": {
+                                        "Call_Google_Knowledge_Search_Graph_API": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "SetVariable",
+                                    "inputs": {
+                                        "name": "KnowledgeAPIResult",
+                                        "value": "@body('Call_Google_Knowledge_Search_Graph_API')"
+                                    }
+                                },
+                                "Set_socialMediaResponse_variable": {
+                                    "runAfter": {
+                                        "Parse_Social_Media_Aggregator_API_Response": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "SetVariable",
+                                    "inputs": {
+                                        "name": "socialMediaResponse",
+                                        "value": "@body('Parse_Social_Media_Aggregator_API_Response')"
+                                    }
+                                }
+                            },
+                            "runAfter": {
+                                "Initialize_KnowledgeAPIResult_variable": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Foreach",
+                            "runtimeConfiguration": {
+                                "concurrency": {
+                                    "repetitions": 1
+                                }
+                            }
+                        },
+                        "Get_blob_content_of_input_file": {
+                            "runAfter": {},
+                            "metadata": {
+                                "JTJmc3RhdGljLWlucHV0LWRhdGElMmZIYWNrYXRob25fRGF0YV9NaW5vcml0eVdvbWVuT3duZWRfMjAyMit2MV9TdWJzZXQueGxzeA==": "/static-input-data/Hackathon_Data_MinorityWomenOwned_2022 v1_Subset.xlsx",
+                                "JTJmc3RhdGljLWlucHV0LWRhdGElMmZTYW1wbGUueGxzeA==": "/static-input-data/Sample.xlsx",
+                                "JTJmc3RhdGljLWlucHV0LWRhdGElMmZvdXRwdXQuanNvbg==": "/static-input-data/output.json"
+                            },
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['azureblob']['connectionId']"
+                                    }
+                                },
+                                "method": "get",
+                                "path": "/v2/datasets/@{encodeURIComponent(encodeURIComponent('AccountNameFromSettings'))}/files/@{encodeURIComponent(encodeURIComponent('JTJmc3RhdGljLWlucHV0LWRhdGElMmZIYWNrYXRob25fRGF0YV9NaW5vcml0eVdvbWVuT3duZWRfMjAyMit2MV9TdWJzZXQueGxzeA=='))}/content",
+                                "queries": {
+                                    "inferContentType": false
+                                }
+                            }
+                        },
+                        "Initialize_KnowledgeAPIResult_variable": {
+                            "runAfter": {
+                                "Initialize_socialMediaResponse_variable": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "KnowledgeAPIResult",
+                                        "type": "object"
+                                    }
+                                ]
+                            }
+                        },
+                        "Initialize_enrichedDataItem_variable": {
+                            "runAfter": {
+                                "List_rows_present_in_input_excel": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "enrichedDataItem",
+                                        "type": "object"
+                                    }
+                                ]
+                            }
+                        },
+                        "Initialize_socialMediaResponse_variable": {
+                            "runAfter": {
+                                "Initialize_enrichedDataItem_variable": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "socialMediaResponse",
+                                        "type": "array"
+                                    }
+                                ]
+                            }
+                        },
+                        "List_rows_present_in_input_excel": {
+                            "runAfter": {
+                                "Get_blob_content_of_input_file": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "metadata": {
+                                "FB05F964E36FD558!131": "/Hackathon_Data_MinorityWomenOwned_2022 v1_Subset.xlsx"
+                            },
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['excelonline']['connectionId']"
+                                    }
+                                },
+                                "method": "get",
+                                "path": "/drives/me/files/@{encodeURIComponent('FB05F964E36FD558!131')}/tables/@{encodeURIComponent('{ECB8B04E-57F6-422F-8F34-C057CAE0C763}')}/items",
+                                "queries": {
+                                    "source": "me"
+                                }
+                            }
+                        }
+                    },
+                    "outputs": {}
+                },
+                "parameters": {
+                    "$connections": {
+                        "value": {
+                            "azureblob": {
+                                "connectionId": "[parameters('connections_azureblob_externalid')]",
+                                "connectionName": "azureblob",
+                                "id": "/subscriptions/d8d3f55a-8679-4dad-bbe3-3b851100c78e/providers/Microsoft.Web/locations/eastus/managedApis/azureblob"
+                            },
+                            "documentdb": {
+                                "connectionId": "[parameters('connections_documentdb_externalid')]",
+                                "connectionName": "documentdb",
+                                "id": "/subscriptions/d8d3f55a-8679-4dad-bbe3-3b851100c78e/providers/Microsoft.Web/locations/eastus/managedApis/documentdb"
+                            },
+                            "excelonline": {
+                                "connectionId": "[parameters('connections_excelonline_externalid')]",
+                                "connectionName": "excelonline",
+                                "id": "/subscriptions/d8d3f55a-8679-4dad-bbe3-3b851100c78e/providers/Microsoft.Web/locations/eastus/managedApis/excelonline"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    ]
+}
