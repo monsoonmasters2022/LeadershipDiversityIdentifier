@@ -1,7 +1,7 @@
 
 <h1 align="center">
   <br>
-  <a href="https://github.com/monsoonmasters2022/LeadershipDiversityIdentifier"><img src="https://raw.githubusercontent.com/amitmerchant1990/electron-markdownify/master/app/img/markdownify.png" alt="DiversityLeadershipIdentifier" width="200"></a>
+  <a href="https://github.com/monsoonmasters2022/LeadershipDiversityIdentifier"><img src="https://www.pngarts.com/files/7/Inclusion-Diversity-PNG-Image-Transparent.png" alt="DiversityLeadershipIdentifier" width="200"></a>
   <br>
   DiversityLeadershipIdentifier
   <br>
