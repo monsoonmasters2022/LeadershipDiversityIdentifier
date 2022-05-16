@@ -1,7 +1,7 @@
 
 <h1 align="center">
   <br>
-  <a href="https://github.com/monsoonmasters2022/LeadershipDiversityIdentifier"><img src="https://raw.githubusercontent.com/amitmerchant1990/electron-markdownify/master/app/img/markdownify.png" alt="DiversityLeadershipIdentifier" width="200"></a>
+  <a href="https://github.com/monsoonmasters2022/LeadershipDiversityIdentifier"><img src="https://www.pngarts.com/files/7/Inclusion-Diversity-PNG-Image-Transparent.png" alt="DiversityLeadershipIdentifier" width="200"></a>
   <br>
   DiversityLeadershipIdentifier
   <br>
@@ -23,7 +23,7 @@
   <a href="#license">License</a>
 </p>
 
-![screenshot](https://raw.githubusercontent.com/amitmerchant1990/electron-markdownify/master/app/img/markdownify.gif)
+![screenshot](https://cdn.kapwing.com/final_62826977f96bef12492c280b_215300.gif)
 
 ## Key Features
 
@@ -43,7 +43,9 @@ DiversityLeadershipIdentifier is an [emailware](https://en.wiktionary.org/wiki/e
 
 This software uses the following open source packages:
 
-- [Python](https://www.python.org)
+- [Python3](https://www.python.org)
+- [Spacy](https://spacy.io)
+- [NLTK](https://www.nltk.org)
 
 
 ## Related
