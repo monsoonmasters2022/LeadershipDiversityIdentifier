@@ -43,7 +43,9 @@ DiversityLeadershipIdentifier is an [emailware](https://en.wiktionary.org/wiki/e
 
 This software uses the following open source packages:
 
-- [Python](https://www.python.org)
+- [Python3](https://www.python.org)
+- [Spacy](https://spacy.io)
+- [NLTK](https://www.nltk.org)
 
 
 ## Related
