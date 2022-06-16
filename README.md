@@ -28,9 +28,7 @@
 ## Key Features
 
 * Low Code/No Code - Make changes, See changes
-    - Instantly see what your Markdown documents look like in HTML as you create them.
 * Serverless Code
-    - While you type, LivePreview will automatically scroll to the current location you're editing.
 * Usage of Public APIs/Data
 * ML Model for diversity determination
 * Build for Azure
